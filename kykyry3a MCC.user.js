@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         kykyry3a MCC
 // @namespace    http://usbo.info/
-// @version      0.2
+// @version      0.3
 // @description  Show MCC
 // @author       usbo
 // @match        https://the-future.ru/
@@ -28,7 +28,7 @@ HistoryView.OperationView = React.createClass({
             className: "history_operations_day_operation_info_title",
             key: "title",
             dangerouslySetInnerHTML: {
-                __html: this.props.operation.title + " / " + ((this.props.operation.mcc && this.props.operation.mcc.code))
+                __html: this.props.operation.title + ((this.props.operation.mcc && this.props.operation.mcc.code)?" / " + this.props.operation.mcc.code:"")
             }
         }), consumer.getMergedCards().length > 1 && React.DOM.div({
             className: "history_operations_day_operation_info_card",
