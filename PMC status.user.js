@@ -4,6 +4,9 @@
 // @author       Pavel_Goncharenko
 // @match        https://pmcpct.epam.com/pmc/timejournal/*
 // @match        https://pmcmsq.epam.com/pmc/timejournal/*
+// @source       https://raw.githubusercontent.com/trusiwko/Web/master/PMC%20status.user.js
+// @updateURL    https://raw.githubusercontent.com/trusiwko/Web/master/PMC%20status.user.js
+// @downloadURL  https://raw.githubusercontent.com/trusiwko/Web/master/PMC%20status.user.js
 // @grant        GM_addStyle
 // ==/UserScript==
 
