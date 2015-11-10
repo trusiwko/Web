@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name        kykyry3a MCC
 // @namespace   http://usbo.info/
-// @version     0.4
+// @version     0.5
 // @description Show MCC for operation in Kykyruza new web site
 // @author      usbo
-// @author      alezhu (adaptation to new version of https://the-future.ru/)
-// @match       https://the-future.ru/
+// @author      alezhu (adaptation to new version of https://mybank.oplata.kykyryza.ru/)
+// @match       https://mybank.oplata.kykyryza.ru/
 // @grant       none
 // @run-at      document-start
 // @source      https://raw.githubusercontent.com/trusiwko/Web/master/kykyry3a%20MCC.user.js
