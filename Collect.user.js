@@ -75,7 +75,7 @@ function syncStart() {
         arr.push(o);
         //console.log(o);
     });
-    $.post('https://usbo.info/collect/save/', {type: 'Кукуруза', ean: ean, data: arr}, function(data){
+    $.post('https://usbo.info/collect/save/', {secret: 'secret', type: 'Кукуруза', ean: ean, data: arr}, function(data){
        console.log(data);
         //alert(data);
     });
