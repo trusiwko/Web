@@ -6,6 +6,7 @@
 // @author       usbo
 // @match        https://mybank.oplata.kykyryza.ru/
 // @match        https://iclick.imoneybank.ru/card/*
+// @match        https://my.tinkoff.ru/account/*
 // @updateURL    https://raw.githubusercontent.com/trusiwko/Web/master/Collect.user.js
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -16,7 +17,7 @@
 // GM_setValue( 'acc_need', false );
 // GM_setValue( 'secret', 'secret' );
 
-if (location.hostname == "mybank.oplata.kykyryza.ru") {
+if (location.hostname != "iclick.imoneybank.ru") {
     var s = document.createElement("script");
     s.type = "text/javascript";
     s.src = "https://code.jquery.com/jquery-2.1.4.min.js";
@@ -39,10 +40,11 @@ waitForFnc();
 var usbo_secret;
 
 function start() {
+    console.log('Btn');
     usbo_secret = GM_getValue( 'secret', '-' );
     if (usbo_secret == '-') 
         alert('ВНИМАНИЕ! Необходимо установить секрет');
-    var div = jQuery('<div />').css('position', 'fixed').css('top', 0).css('right', 0).css('padding', 10).css('padding-right', 20).appendTo($('body'));
+    var div = jQuery('<div />').attr('id', 'usbo_btn').css('z-index', 2).css('position', 'fixed').css('top', 0).css('right', 0).css('padding', 10).css('padding-right', 20).appendTo($('body'));
     var btn = jQuery('<button />').html('+ usbo.info').appendTo(div).on('click', syncStart);
 }
 
@@ -52,7 +54,28 @@ var res = new Array();
 var account;
 var type;
 
+function open_tinkoff() {
+  if($('.m-timeline__dropdown-menu').length == 0){
+      window.setTimeout(open_tinkoff,100);
+  }
+  else{
+      start_tinkoff();
+  }
+}
+
+function start_tinkoff() {
+    var a = $('.m-timeline__dropdown-menu').find('.ui-menu__link:first').attr('href');
+    $.get(a, {}, function(data) {
+        arr = data.split("\n");
+        next();
+    });
+    if (!GM_getValue( 'acc_need', true )) {
+        account = '-';
+    }
+}
+
 function syncStart() {
+    console.log('start');
     arr = new Array();
     res = new Array();
     nsend = 0;
@@ -115,6 +138,29 @@ function syncStart() {
             });
             arr.push(o);
         });
+    } else if (location.hostname == 'my.tinkoff.ru') {
+        type = 'Tinkoff';
+        account = $('#ui-accounts-info').find('.ui-module__header-title').text();
+
+        $('.m-timeline__export-tooltip').click();
+        open_tinkoff();
+        return;
+        
+        /*
+        $('.m-timeline__item').each(function(a,b) {
+            var o = {date: '', desc: '', sum: '', group: '', cash: ''};
+            var d = $(b).find('.m-timeline__item-header').find('.m-timeline__date-short');
+            o.date = d.find('.m-timeline__day').text() + ' ' + d.find('.m-timeline__month').text();
+            o.desc = $(b).find('.m-timeline__operation-name').text();
+            var e = $(b).find('.ui-money_size_l');
+            if (!e.hasClass('ui-money_color_red'))
+                o.sum = e.text();
+            o.group = $(b).find('.m-timeline__category').text();
+            o.cash = $(b).find('.m-timeline__bonus').find('span:first').text();
+            if (o.sum != '')
+                arr.push(o);
+        });
+        */
     }
     if (!GM_getValue( 'acc_need', true )) {
         account = '-';
