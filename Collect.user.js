@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name         Collect
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.2
 // @description  Bank operations collector
 // @author       usbo
 // @match        https://mybank.oplata.kykyryza.ru/
-// @match        https://iclick.imoneybank.ru/card/*
+// @match        https://iclick.imoneybank.ru/*
 // @match        https://my.tinkoff.ru/*
 // @updateURL    https://raw.githubusercontent.com/trusiwko/Web/master/Collect.user.js
 // @grant        GM_getValue
@@ -71,6 +71,7 @@ function start_tinkoff() {
         success: function(data) {
             //console.log(data);
             arr = data.split("\n");
+            arr.reverse();
             next();
         },
         beforeSend: function(jqXHR) { jqXHR.overrideMimeType('text/csv;charset=windows-1251'); }
@@ -127,9 +128,12 @@ function syncStart() {
             }
             arr.push(o);
         });
+        arr.reverse();
     } else if (location.hostname == 'iclick.imoneybank.ru') {
         type = 'iMoney';
-        account = $('#StatementForm').find('dd').find('a[href^="/account/"]').html().trim();
+        var acc = $('#main .inner h1 span').text(); //$('#StatementForm').find('dd').find('a[href^="/account/"]').html().trim();
+        acc = acc.split("\n");
+        account = acc[0];
         $('#StatementForm .items .item p').each(function(a,b) {
             var o = {date: '', desc: '', sum: 0.0};
             $(b).children('span').each(function(c,d) {
@@ -144,6 +148,7 @@ function syncStart() {
             });
             arr.push(o);
         });
+        arr.reverse();
     } else if (location.hostname == 'my.tinkoff.ru') {
         type = 'Tinkoff';
         account = $('#ui-accounts-info').find('.ui-module__header-title').text();
