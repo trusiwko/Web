@@ -6,7 +6,7 @@
 // @author       usbo
 // @match        https://mybank.oplata.kykyryza.ru/
 // @match        https://iclick.imoneybank.ru/card/*
-// @match        https://my.tinkoff.ru/account/*
+// @match        https://my.tinkoff.ru/*
 // @updateURL    https://raw.githubusercontent.com/trusiwko/Web/master/Collect.user.js
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -65,9 +65,15 @@ function open_tinkoff() {
 
 function start_tinkoff() {
     var a = $('.m-timeline__dropdown-menu').find('.ui-menu__link:first').attr('href');
-    $.get(a, {}, function(data) {
-        arr = data.split("\n");
-        next();
+    $.ajax({
+        url: a,
+        contentType: 'Content-type: text/csv; charset=windows-1251',
+        success: function(data) {
+            //console.log(data);
+            arr = data.split("\n");
+            next();
+        },
+        beforeSend: function(jqXHR) { jqXHR.overrideMimeType('text/csv;charset=windows-1251'); }
     });
     if (!GM_getValue( 'acc_need', true )) {
         account = '-';
@@ -88,7 +94,7 @@ function syncStart() {
 
             var c = $(b).attr('data-reactid').match(/\$([\d]{4})\.\$([\d]{1,2})\.\$([\d]{1,2})/); // .0.$main-view.0.$ad1d6be9.0.$operations.$2014.$11.$1.$21611673.$operation
             if (c != null)
-                o.date = c[1] + '-' + c[2] + '-' + c[3];
+                o.date = c[1] + '-' + (parseInt(c[2]) + 1) + '-' + c[3];
 
             o.id = $(b).attr('data-hst-item-id');
 
@@ -141,8 +147,8 @@ function syncStart() {
     } else if (location.hostname == 'my.tinkoff.ru') {
         type = 'Tinkoff';
         account = $('#ui-accounts-info').find('.ui-module__header-title').text();
-
-        $('.m-timeline__export-tooltip').click();
+        if ($('.m-timeline__dropdown-menu').length == 0)
+          $('.m-timeline__export-tooltip').click();
         open_tinkoff();
         return;
         
