@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Collect
 // @namespace    http://tampermonkey.net/
-// @version      0.2
+// @version      0.3
 // @description  Bank operations collector
 // @author       usbo
 // @match        https://mybank.oplata.kykyryza.ru/
