@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Collect
 // @namespace    http://tampermonkey.net/
-// @version      0.3
+// @version      0.4
 // @description  Bank operations collector
 // @author       usbo
 // @match        https://mybank.oplata.kykyryza.ru/
@@ -9,6 +9,8 @@
 // @match        https://my.tinkoff.ru/*
 // @match        https://connect.raiffeisen.ru/rba/*
 // @match        https://online.vtb24.ru/content/telebank-client/ru/login/telebank/*
+// @match        https://retail.sdm.ru/
+// @match        https://ib.homecredit.ru/ibs/group/hcfb/*
 // @updateURL    https://raw.githubusercontent.com/trusiwko/Web/master/Collect.user.js
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -20,7 +22,7 @@
 // GM_setValue( 'acc_need', false );
 // GM_setValue( 'secret', 'secret' );
 
-if (location.hostname != "iclick.imoneybank.ru" && location.hostname != 'connect.raiffeisen.ru' && location.hostname != 'online.vtb24.ru') {
+if (location.hostname == "mybank.oplata.kykyryza.ru" || location.hostname == 'my.tinkoff.ru') {
     var s = document.createElement("script");
     s.type = "text/javascript";
     s.src = "https://code.jquery.com/jquery-2.1.4.min.js";
@@ -48,7 +50,12 @@ function start() {
     if (usbo_secret == '-') 
         alert('ВНИМАНИЕ! Необходимо установить секрет');
     var div = jQuery('<div />').attr('id', 'usbo_btn').css('z-index', 9001).css('position', 'fixed').css('top', 0).css('right', 10).css('padding', 10).appendTo($('body'));
-    var btn = jQuery('<button />').html('+ usbo.info').appendTo(div).on('click', syncStart);
+    var btn = jQuery('<button />').html('+ usbo.info').appendTo(div);
+    if (location.hostname == 'retail.sdm.ru') {
+        btn.bind( "click", syncStart);
+    } else {
+        btn.on('click', syncStart);
+    }
 }
 
 var nsend = 0;
@@ -151,6 +158,72 @@ function vtb1() {
 	g.showLoader()
 }
 
+function hcb2() {
+    var o = false;
+    var date = '';
+    var desc = '';
+    var group = '';
+    var sum = '';
+    var curr = '';
+    arr = new Array();
+    $("[id$='printOperations']").find('tr').each(function(a,b) {
+        $(b).find('td').each(function(a,c) {
+            var atr = $(c).attr('colspan');
+            if (typeof atr != "undefined" && atr == '3') {
+                if (o != false) {
+                    arr.push({date: date, desc: desc, group: group, sum: sum, curr: curr});
+                    desc = '';
+                    group = '';
+                    sum = '';
+                    curr = '';
+                    o = false;
+                }
+                var d = $(c).find('div b').text().trim();
+                if (d != '')
+                    date = d;
+            }
+            if ($(c).hasClass('LINE-1')) {
+                var d = $(c).find('div').text().trim();
+                desc = d;
+            }
+            if ($(c).hasClass('LINE-2')) {
+                var d = $(c).find('div').text().trim();
+                group = d;
+            }
+            if ($(c).hasClass('AMOUNT')) {
+                var d = $(c).html();
+                var e = d.match(/<span[^>]*>([^<]*)<\/span>&nbsp;([^<]*)<span class="([^"]*)"/);
+                sum = parseFloat(e[2].trim().replace(/ /g, '').replace(/\u00a0/g, '').replace(',', '.'));
+                if (e[1] == '-')
+                    sum = -sum;
+                curr = e[3];
+                o = true;
+            }
+        });
+    });
+    arr.reverse();
+    next();
+}
+
+function hcb() {
+    var src = loadPrintMovements.toString().match(/source:'(.*?)'/)[1];
+    var id = src.split(':');
+    var frm = id.slice(0,3).join(':');
+    var upd = id.slice(0,4).join(':') + ':printOperationsComponent';
+    
+    console.log(src, frm, upd);
+    
+    PrimeFaces.ab({
+        source: src,
+        formId: frm,
+        update: upd,
+        oncomplete: function(xhr, status, args) {
+            hcb2();
+        },
+        params: undefined
+    });
+}
+
 function syncStart() {
     console.log('start');
     arr = new Array();
@@ -228,22 +301,6 @@ function syncStart() {
           $('.m-timeline__export-tooltip').click();
         open_tinkoff();
         return;
-        
-        /*
-        $('.m-timeline__item').each(function(a,b) {
-            var o = {date: '', desc: '', sum: '', group: '', cash: ''};
-            var d = $(b).find('.m-timeline__item-header').find('.m-timeline__date-short');
-            o.date = d.find('.m-timeline__day').text() + ' ' + d.find('.m-timeline__month').text();
-            o.desc = $(b).find('.m-timeline__operation-name').text();
-            var e = $(b).find('.ui-money_size_l');
-            if (!e.hasClass('ui-money_color_red'))
-                o.sum = e.text();
-            o.group = $(b).find('.m-timeline__category').text();
-            o.cash = $(b).find('.m-timeline__bonus').find('span:first').text();
-            if (o.sum != '')
-                arr.push(o);
-        });
-        */
     } else if (location.hostname == 'connect.raiffeisen.ru') {
         type = 'Raiffeisen';
         account = $('option[value="'+$('select[name="objectId"]').val()+'"]').text();
@@ -272,6 +329,38 @@ function syncStart() {
         account = $('.customCheckbox.checked').parent().parent().find('.productInfo i span').text();
         vtb1();
         return;
+    } else if (location.hostname == 'retail.sdm.ru') {
+        type = 'SDM';
+        var t = $('#account_data tr:first td:first').text().split(" ");
+        account = t[0];
+        var currency = t[1];
+        
+        $('.Data-Grid tbody tr').each(function(a,b){
+            var o = {id: '', date: '', desc: '', sum: 0.0, curr: currency};
+            $(b).find('td').each(function(a,c) {
+                var d = $(c).text();
+                if (a == 0) {
+                    o.date = d;
+                } else if (a == 1) {
+                    o.id = d;
+                } else if (a == 2 && d.trim() != '') {
+                    d = d.replace(/ /g, '').replace(/\u00a0/g, '');
+                    o.sum = -1 * parseFloat(d);
+                } else if (a == 3 && d.trim() != '') {
+                    d = d.replace(/ /g, '').replace(/\u00a0/g, '');
+                    o.sum = parseFloat(d);
+                } else if (a == 4) {
+                    o.desc = d;
+                }
+            })
+            arr.push(o);
+        });
+        
+    } else if (location.hostname == 'ib.homecredit.ru') {
+        type = 'HomeCredit';
+        account = $('.friendlyNameBox td:first').text();
+        hcb();
+        return;
     }
     if (!GM_getValue( 'acc_need', true )) {
         account = '-';
@@ -285,7 +374,8 @@ function next() {
         if (location.hostname == 'online.vtb24.ru') {
             // $.param не работает с массивами в этой версии jQuery
             var ks = "part=" + nsend + "&secret=" + usbo_secret + "&type=" + type + "&account=" + account;
-            for(i=0;i<a.length;i++) {ks += '&data[]=' + encodeURIComponent(a[i]);}
+            for(var i=0;i<a.length;i++) {ks += '&data[]=' + encodeURIComponent(a[i]);}
+            console.log('Send request (1)');
             GM_xmlhttpRequest({
                 method: "POST",
                 url: 'https://usbo.info/collect/save/',
@@ -296,9 +386,15 @@ function next() {
                 onload: function(data) {
                     res.push(data.responseText);
                     next();
+                },
+                onerror: function(data) {
+                    console.log('ERROR', data);
+                    res.push(data.responseText);
+                    next();
                 }
             });
         } else {
+            console.log('Send request (2)');
             $.post('https://usbo.info/collect/save/', {part: nsend, secret: usbo_secret, type: type, account: account, data: a}, function(data){
                 res.push(data);
                 next();
