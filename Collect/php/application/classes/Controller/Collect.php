@@ -87,6 +87,7 @@ class Controller_Collect extends Controller_Base {
                     $this->add_sdm_filter($secret, $any, isset($filter['sdm']) ? $filter['sdm'] : false);
                     $this->add_hcb_filter($secret, $any, isset($filter['hcb']) ? $filter['hcb'] : false);
                     $this->add_psb_filter($secret, $any, isset($filter['psb']) ? $filter['psb'] : false);
+                    $this->add_sber_filter($secret, $any, isset($filter['sber']) ? $filter['sber'] : false);
 
                 }
             } else {
@@ -132,6 +133,8 @@ class Controller_Collect extends Controller_Base {
             $this->add_hcb($secret, $account, $part, $data);
 		} elseif ($type == 'PSB') {
             $this->add_psb($secret, $account, $part, $data);
+		} elseif ($type == 'Sberbank') {
+            $this->add_sber($secret, $account, $part, $data);
 		} else {
             die('Type "' . $type . '" is not defined (main).');
         }
@@ -540,6 +543,67 @@ class Controller_Collect extends Controller_Base {
         die(($part + 1) . '. Данные сохранены: ' . $t . ' шт.');
     }
     
+    private function add_sber($secret, $account, $part, $data) {
+        
+        $ctype = 'sber';
+        
+        $model = new Model_Collect;
+
+        if ($data[0]['type'] == 1) {
+        
+            if ($part == 0) {
+                $mindate = date('Y-m-d', strtotime($data[0]['date']));
+            } else {
+                $mindate = '';
+            }
+            $main_id = $this->add_prepare($secret, $ctype, $account, $part, $mindate);
+            
+            $t = 0;
+            foreach ($data as $oper) {
+                $t++;
+                // format
+                $oper['sum'] = (float)$oper['sum'];
+                $oper['date'] = date('Y-m-d', strtotime($oper['date']));
+                if ($oper['curr'] == 'RUR') $oper['curr'] = 'RUB';
+                
+                // to base
+                $e = $model->upd($model->get_table_name($ctype), 0, array(
+                    'pid' => $main_id,
+                    'oper_id' => $oper['id'],
+                    'oper_date' => $oper['date'],
+                    'oper_description' => $oper['desc'],
+                    'oper_sum' => $oper['sum'], 
+                    'oper_group' => 'Прочие',
+                    'oper_currency' => $oper['curr']
+                ));
+                if ($e < 0) {
+                    die('Ошибка: ' . $e . ' - ' . mysql_error() .  ': ' . print_r($oper, true));
+                }
+            }
+
+            die(($part + 1) . '. Данные сохранены: ' . $t . ' шт.');
+            
+        } else {
+            $k = 0;
+            $main_id = $model->get_main($secret, $ctype, $account);
+            if ($main_id <= 0) 
+                die('Не выгружено ни одной операции.');
+            foreach($data as $oper) {
+                if (strlen($oper['date']) == 5) 
+                    $oper['date'] .= '.' . date('Y');
+                $oper['date'] = date('Y-m-d', strtotime($oper['date']));
+                
+                if ($model->get_sber_id($main_id, $oper)) {
+                    $k = $k + 1;
+                } else {
+                    
+                }
+                
+            }
+            die('Обновлено: ' .  $k . ' из ' . count($data) . ' шт.');
+        }
+    }
+    
     private function get_group_filter_main($filter, $oper) {
         $a = $this->get_group_fltr($filter, $oper);
         if (is_array($a)) {
@@ -846,6 +910,41 @@ class Controller_Collect extends Controller_Base {
             foreach ($data as $k => $oper) {
 
                 $oper['oper_group'] = $this->get_group($data[$k]['oper_mcc'], $oper['oper_group']);
+                if ($anyfilter) 
+                    $oper = $this->get_group_filter_main($anyfilter, $oper);
+                if ($filter)
+                    $oper = $this->get_group_filter_main($filter, $oper);
+                $oper['pid'] = $main['id'];
+                //$oper['oper_id'] = md5(rand() . time() . $oper['oper_date']);
+                
+                if ($oper['oper_group'] == $this->my_groups['csh']) {
+                    $oper['oper_cashback'] = $oper['oper_sum'];
+                    $oper['oper_sum'] = 0;
+                }                
+                
+                unset($oper['oper_mnth']);
+                $e = $model->add_collect($main['id'], $oper);
+                if ($e < 0) {
+                    die('Ошибка: ' . $e . ' - ' . mysql_error() .  ': ' . print_r($oper, true));
+                }
+            }
+        }
+        
+    }
+    
+    private function add_sber_filter($secret, $anyfilter, $filter) {
+        
+        $model = new Model_Collect;
+        
+        $sm = $model->get_main_accs($secret, 'sber');
+        foreach ($sm as $main) {
+            // clear
+            $model->clear_data_filtered($main['id']);
+            // all data
+            $data = $model->get_sber($main['id']);
+            foreach ($data as $k => $oper) {
+
+                //$oper['oper_group'] = $this->get_group($data[$k]['oper_mcc'], $oper['oper_group']);
                 if ($anyfilter) 
                     $oper = $this->get_group_filter_main($anyfilter, $oper);
                 if ($filter)

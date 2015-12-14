@@ -12,6 +12,7 @@
 // @match        https://retail.sdm.ru/
 // @match        https://ib.homecredit.ru/ibs/group/hcfb/*
 // @match        https://pfm.psbank.ru/Transactions
+// @match        https://node1.online.sberbank.ru/PhizIC/private/*
 // @updateURL    https://raw.githubusercontent.com/trusiwko/Web/master/Collect/Collect.user.js
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -52,7 +53,7 @@ function start() {
         alert('ВНИМАНИЕ! Необходимо установить секрет');
     var div = jQuery('<div />').attr('id', 'usbo_btn').css('z-index', 9001).css('position', 'fixed').css('top', 0).css('right', 10).css('padding', 10).appendTo($('body'));
     var btn = jQuery('<button />').html('+ usbo.info').appendTo(div);
-    if (location.hostname == 'retail.sdm.ru') {
+    if (location.hostname == 'retail.sdm.ru' || location.hostname == 'node1.online.sberbank.ru') {
         btn.bind( "click", syncStart);
     } else {
         btn.on('click', syncStart);
@@ -253,6 +254,57 @@ function psb() {
     next();
 }
 
+function sber() {
+    $('form[name="PrintAccountAbstractForm"] table .tblInfHeaderAbstrPrint').parent().find('tr').each(function(a,b) {
+        var o = {type: 1, id: '', date: '', desc: '', group: '', sum: 0.0, curr: 'RUB', cb: 0.0};
+        var ins = false;
+        $(b).find('td').each(function(a,c) {
+            var d = $(c).text().trim();
+            if (a == 0)
+                o.date = d;
+            if (a == 1)
+                o.id = d;
+            if (a == 3) 
+                o.desc = d;
+            if (a == 6 && d != '0.00') 
+                o.sum = -parseFloat(d);
+            if (a == 7 && d != '0.00') {
+                o.sum = parseFloat(d);
+            }
+            if (a == 8) {
+                ins = true;
+            }
+        });
+        if (ins)
+            arr.push(o);
+    });
+    
+    $('#simpleTable0 > div > table > tbody > tr').each(function(a,b) {
+        var o = {type: 2, date: '', desc: '', group: '', sum: 0.0};
+        var ins = false;
+        $(b).children('td').each(function(a,c) {
+            var d = $(c).text().trim();
+            if (a == 0)
+                o.group = $(c).find('table.paymentDescription tr:first .payment-description-body').text().trim();
+            if (a == 2)
+                o.desc = $(c).find('.linkName').text().trim() + ' / ' + $(c).find('.grayText').text().trim();
+            if (a == 3) 
+                o.date = d;
+            if (a == 4) {
+                var ds = d.replace(' руб.', '').replace(' ', '').replace(',', '.').replace('−', '-');
+                if (ds == '') ds = '0';
+                console.log(ds, parseFloat(ds));
+                o.sum = parseFloat(ds);
+                ins = true;
+            }
+        });
+        if (ins)
+            arr.push(o);
+    });
+    
+    next();
+}
+
 function syncStart() {
     console.log('start');
     arr = new Array();
@@ -397,6 +449,11 @@ function syncStart() {
         type = 'PSB';
         account = 'main';
         psb();
+        return;
+    } else if (location.hostname == 'node1.online.sberbank.ru') {
+        type = 'Sberbank';
+        account = 'main';
+        sber();
         return;
     }
     if (!GM_getValue( 'acc_need', true )) {

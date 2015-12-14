@@ -12,6 +12,7 @@ class Model_Collect extends Model_Base {
     private $_collect_sdm = 'collect_sdm';
     private $_collect_hcb = 'collect_hcb';
     private $_collect_psb = 'collect_psb';
+    private $_collect_sber = 'collect_sber';
     
     public function __construct() {
         parent::__construct();
@@ -25,6 +26,7 @@ class Model_Collect extends Model_Base {
 		$this->_collect_sdm = $this->prefix() . $this->_collect_sdm;
         $this->_collect_hcb = $this->prefix() . $this->_collect_hcb;
         $this->_collect_psb = $this->prefix() . $this->_collect_psb;
+        $this->_collect_sber = $this->prefix() . $this->_collect_sber;
     }
     
     public function get_table_name($type) {
@@ -44,6 +46,8 @@ class Model_Collect extends Model_Base {
             return $this->_collect_hcb;
         } elseif ($type == 'psb') {
             return $this->_collect_psb;
+        } elseif ($type == 'sber') {
+            return $this->_collect_sber;
         } else {
             die('Type "'.$type.'" is not defined (get_table_name).');
         }
@@ -220,6 +224,54 @@ class Model_Collect extends Model_Base {
             ->execute($this->_instance)
             ->as_array(); 
         return $s;
+    }
+    
+    public function get_sber($pid) {
+        $s = DB::query(Database::SELECT, 'SELECT 
+                        c.oper_id,
+						c.oper_currency, 
+                        c.oper_date, 
+                        date_format(c.oper_date, "%Y-%m") oper_mnth,
+                        c.oper_description, 
+                        c.oper_group,
+                        c.oper_sum
+                   FROM `' . $this->_collect_sber . '` c
+                  WHERE c.pid = :pid', FALSE)
+            ->param(':pid', $pid)
+            ->execute($this->_instance)
+            ->as_array(); 
+        return $s;
+    }
+    
+    public function get_sber_id($pid, $data) {
+        $q = DB::query(Database::SELECT, 'SELECT c.oper_id
+                   FROM `' . $this->_collect_sber . '` c
+                  WHERE c.pid = :pid
+                    and (:oper_sum between c.oper_sum - 0.001 and c.oper_sum + 0.001 
+                      or :oper_sum between round(c.oper_sum / 1.01, 2) - 0.001 and round(c.oper_sum / 1.01, 2) + 0.001 )
+                    and :oper_date between DATE_ADD(c.oper_date,INTERVAL -6 DAY) and c.oper_date
+                    order by c.oper_date desc', FALSE)
+            ->param(':pid', $pid)
+            ->param(':oper_date', $data['date'])
+            ->param(':oper_sum', $data['sum'])
+            ->execute($this->_instance);
+        $s = $q
+            ->as_array(); 
+            
+        if ($s) {
+            $s = $s[0];
+            DB::query(Database::UPDATE, 'UPDATE `' . $this->_collect_sber . '` 
+                    SET oper_group = :oper_group, oper_description = :oper_description
+                  WHERE pid = :pid
+                    and oper_id = :oper_id', FALSE)
+            ->param(':pid', $pid)
+            ->param(':oper_id', $s['oper_id'])
+            ->bind(':oper_group', $data['group'])
+            ->bind(':oper_description', $data['desc'])
+            ->execute($this->_instance);
+            return true;
+        }
+        return false;
     }
     
     public function clear($secret, $type, $acc, $part) {

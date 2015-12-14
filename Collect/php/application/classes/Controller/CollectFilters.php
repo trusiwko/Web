@@ -30,7 +30,8 @@ class Controller_CollectFilters extends Controller_Base {
             'kukuruza' => $this->get_my_kukuruza_filter(),
             'sdm' => $this->get_my_sdm_filter(),
             'hcb' => $this->get_my_hcb_filter(),
-            'psb' => $this->get_my_psb_filter()
+            'psb' => $this->get_my_psb_filter(),
+            'sber' => $this->get_my_sber_filter()
         );
         die(json_encode($filter));
     }
@@ -601,6 +602,28 @@ class Controller_CollectFilters extends Controller_Base {
                 'starts' => array(
                     'Зачисление Cash Back za' => $this->my_groups['csh'],
                     'Зачисление PSB RETAIL' => $this->my_groups['int'],
+                )
+            )
+        );
+        return $filter;
+    }
+    
+    private function get_my_sber_filter() {
+        $filter = array();
+        $filter['groups_desc'] = array(
+            'Оплата с сайта ФНС' => 'Налоги',
+            'Оплата услуг' => array(
+                'starts' => array(
+                    'ЗАО САМГЭС' => 'Коммунальные услуги',
+                    'ООО "ТЦД "Ци​ф​р​а​л​-​С​е​р​в​и​с"' => 'Коммунальные услуги',
+                    'ОАО "Са​м​а​р​а​г​а​з"' => 'Коммунальные услуги',
+                    'ООО "Пр​и​в​о​л​ж​с​кое ПЖРП"' => 'Коммунальные услуги',
+                    'ООО "Са​м​а​р​с​кая Служба Уборки"' => 'Коммунальные услуги',
+                    'Сам​а​р​а​г​о​р​э​н​е​р​г​о​с​б​ыт' => 'Коммунальные услуги',
+                    //
+                    'ООО "Ко​м​б​и​нат шко​л​ь​н​ого пит​а​н​и​я"' => 'Обучение',
+                    //
+                    'Oплата любых моб​и​л​ь​ных тел​е​ф​о​н​ов' => 'Телекоммуникационные услуги',
                 )
             )
         );
