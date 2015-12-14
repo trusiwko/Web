@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Collect
 // @namespace    http://tampermonkey.net/
-// @version      0.4
+// @version      0.5
 // @description  Bank operations collector
 // @author       usbo
 // @match        https://mybank.oplata.kykyryza.ru/
@@ -11,7 +11,7 @@
 // @match        https://online.vtb24.ru/content/telebank-client/ru/login/telebank/*
 // @match        https://retail.sdm.ru/
 // @match        https://ib.homecredit.ru/ibs/group/hcfb/*
-// @updateURL    https://raw.githubusercontent.com/trusiwko/Web/master/Collect.user.js
+// @updateURL    https://raw.githubusercontent.com/trusiwko/Web/master/Collect/Collect.user.js
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
@@ -63,6 +63,10 @@ var arr = new Array();
 var res = new Array();
 var account;
 var type;
+
+function remove_spaces(s) {
+    return s.replace(/ /g, '').replace(/ /g, '').replace(/\u00a0/g, '');
+}
 
 function open_tinkoff() {
   if($('.m-timeline__dropdown-menu').length == 0){
@@ -193,7 +197,8 @@ function hcb2() {
             if ($(c).hasClass('AMOUNT')) {
                 var d = $(c).html();
                 var e = d.match(/<span[^>]*>([^<]*)<\/span>&nbsp;([^<]*)<span class="([^"]*)"/);
-                sum = parseFloat(e[2].trim().replace(/ /g, '').replace(/\u00a0/g, '').replace(',', '.'));
+                var f = remove_spaces(e[2].trim());
+                sum = parseFloat(f.replace(',', '.'));
                 if (e[1] == '-')
                     sum = -sum;
                 curr = e[3];
@@ -210,8 +215,6 @@ function hcb() {
     var id = src.split(':');
     var frm = id.slice(0,3).join(':');
     var upd = id.slice(0,4).join(':') + ':printOperationsComponent';
-    
-    console.log(src, frm, upd);
     
     PrimeFaces.ab({
         source: src,
@@ -303,7 +306,7 @@ function syncStart() {
         return;
     } else if (location.hostname == 'connect.raiffeisen.ru') {
         type = 'Raiffeisen';
-        account = $('option[value="'+$('select[name="objectId"]').val()+'"]').text();
+        account = $('option[value="'+$('select[name="objectId"]').val()+'"]').text().split(" ")[0];
         //getReport('showStatementForm', 'CSV')
         var link = $('#showStatementForm').attr('action');
         var data = {};
@@ -375,7 +378,6 @@ function next() {
             // $.param не работает с массивами в этой версии jQuery
             var ks = "part=" + nsend + "&secret=" + usbo_secret + "&type=" + type + "&account=" + account;
             for(var i=0;i<a.length;i++) {ks += '&data[]=' + encodeURIComponent(a[i]);}
-            console.log('Send request (1)');
             GM_xmlhttpRequest({
                 method: "POST",
                 url: 'https://usbo.info/collect/save/',
@@ -394,7 +396,6 @@ function next() {
                 }
             });
         } else {
-            console.log('Send request (2)');
             $.post('https://usbo.info/collect/save/', {part: nsend, secret: usbo_secret, type: type, account: account, data: a}, function(data){
                 res.push(data);
                 next();
