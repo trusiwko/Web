@@ -11,6 +11,7 @@ class Model_Collect extends Model_Base {
 	private $_collect_vtb24 = 'collect_vtb24';
     private $_collect_sdm = 'collect_sdm';
     private $_collect_hcb = 'collect_hcb';
+    private $_collect_psb = 'collect_psb';
     
     public function __construct() {
         parent::__construct();
@@ -23,6 +24,7 @@ class Model_Collect extends Model_Base {
 		$this->_collect_vtb24 = $this->prefix() . $this->_collect_vtb24;
 		$this->_collect_sdm = $this->prefix() . $this->_collect_sdm;
         $this->_collect_hcb = $this->prefix() . $this->_collect_hcb;
+        $this->_collect_psb = $this->prefix() . $this->_collect_psb;
     }
     
     public function get_table_name($type) {
@@ -40,6 +42,8 @@ class Model_Collect extends Model_Base {
             return $this->_collect_sdm;
         } elseif ($type == 'hcb') {
             return $this->_collect_hcb;
+        } elseif ($type == 'psb') {
+            return $this->_collect_psb;
         } else {
             die('Type "'.$type.'" is not defined (get_table_name).');
         }
@@ -193,6 +197,24 @@ class Model_Collect extends Model_Base {
                         c.oper_description, 
                         c.oper_sum
                    FROM `' . $this->_collect_hcb . '` c
+                  WHERE c.pid = :pid', FALSE)
+            ->param(':pid', $pid)
+            ->execute($this->_instance)
+            ->as_array(); 
+        return $s;
+    }
+    
+    public function get_psb($pid) {
+        $s = DB::query(Database::SELECT, 'SELECT 
+                        c.oper_id,
+                        c.oper_group,
+						c.oper_currency, 
+                        c.oper_date, 
+                        date_format(c.oper_date, "%Y-%m") oper_mnth,
+                        c.oper_description, 
+                        c.oper_sum,
+                        c.oper_mcc
+                   FROM `' . $this->_collect_psb . '` c
                   WHERE c.pid = :pid', FALSE)
             ->param(':pid', $pid)
             ->execute($this->_instance)

@@ -4,39 +4,6 @@ class Controller_Collect extends Controller_Base {
     
     public $body = 'collect';
     
-    private $mccs = array(
-		'Супермаркеты' => array('class' => 'a1', 'mcc' => array('5411')),
-		'АЗС' => array('class' => 'a2', 'mcc' => array('5541', '5543', '5983', '5172')),
-		'Аптеки' => array('class' => 'a3', 'mcc' => array('5912')),
-		'Рестораны' => array('class' => 'a4', 'mcc' => array('5812', '5813', '5814')),
-        'Продовольственные магазины' => array('mcc' => array('5499')),
-        'Кинотеатры' => array('mcc' => array('7832')),
-        'Торговля по каталогам' => array('mcc' => array('5964')),
-        'ЖД, Электрички' => array('mcc' => array('4111', '4112')),
-        'Одежда и обувь' => array('mcc' => array('5621', '5641', '5661', '5699')),
-        'Наличные, Card2Card' => array('mcc' => array('6011', '6012', '6538')),
-        'Телекоммуникационные услуги' => array('mcc' => array('4814', '4812')),
-        'Авто услуги' => array('mcc' => array('5533', '7538')),
-        'Услуги (прочие)' => array('mcc' => array('7399', '7299')),
-        'Дом, ремонт' => array('mcc' => array('5722')),
-		'Мебель и оборудование' => array('mcc' => array('5712')),
-        'Продажа электроники' => array('mcc' => array('5732')),
-        'Коммунальные услуги' => array('mcc' => array('4900')),
-        'Магазины косметики' => array('mcc' => array('5977')),
-        'Благотворительные организации' => array('mcc' => array('8398')),
-        'Разные товары' => array('mcc' => array('5399', '5999')),
-        'Игры, Магазины игрушек' => array('mcc' => array('5945', '5816')),
-        'Страхование' => array('mcc' => array('6300')),
-        'Ювелирные изделия и часы' => array('mcc' => array('5944')),
-        'Услуги по подписке' => array('mcc' => array('5968')),
-        'Универмаги' => array('mcc' => array('5311')),
-		'ПО' => array('mcc' => array('5734')),
-		'Мед.оборудование' => array('mcc' => array('5047')),
-		'Садовые принадлежности' => array('mcc' => array('5261')),
-		'Спорттовары' => array('mcc' => array('5941')),
-		'Рекламные услуги' => array('mcc' => array('7311')),
-        'Фото оборудование' => array('mcc' => array('5946')),
-	);
     private $line = array(
         'id' => '',
         'date' => '',
@@ -108,13 +75,17 @@ class Controller_Collect extends Controller_Base {
                     $filter = json_decode($filter);
                     
                     $filter = $this->toArr($filter);
-
-                    $this->add_kukuruza_filter($secret, isset($filter['kukuruza']) ? $filter['kukuruza'] : false);
-                    $this->add_imoney_filter($secret, isset($filter['imoney']) ? $filter['imoney'] : false);
-                    $this->add_tinkoff_filter($secret, isset($filter['tinkoff']) ? $filter['tinkoff'] : false);
-                    $this->add_raiffeisen_filter($secret, isset($filter['raiffeisen']) ? $filter['raiffeisen'] : false);
-                    $this->add_vtb24_filter($secret, isset($filter['vtb24']) ? $filter['vtb24'] : false);
-                    $this->add_sdm_filter($secret, isset($filter['sdm']) ? $filter['sdm'] : false);
+					
+					$any = isset($filter['*']) ? $filter['*'] : false;
+					//$d = array('kukuruza', 'imoney', 'tinkoff', 'raiffeisen', 'vtb24', 'sdm', 'hcb');
+					
+                    $this->add_kukuruza_filter($secret, $any, isset($filter['kukuruza']) ? $filter['kukuruza'] : false);
+                    $this->add_imoney_filter($secret, $any, isset($filter['imoney']) ? $filter['imoney'] : false);
+                    $this->add_tinkoff_filter($secret, $any, isset($filter['tinkoff']) ? $filter['tinkoff'] : false);
+                    $this->add_raiffeisen_filter($secret, $any, isset($filter['raiffeisen']) ? $filter['raiffeisen'] : false);
+                    $this->add_vtb24_filter($secret, $any, isset($filter['vtb24']) ? $filter['vtb24'] : false);
+                    $this->add_sdm_filter($secret, $any, isset($filter['sdm']) ? $filter['sdm'] : false);
+                    $this->add_hcb_filter($secret, $any, isset($filter['hcb']) ? $filter['hcb'] : false);
 
                 }
             } else {
@@ -158,19 +129,16 @@ class Controller_Collect extends Controller_Base {
             $this->add_sdm($secret, $account, $part, $data);
 		} elseif ($type == 'HomeCredit') {
             $this->add_hcb($secret, $account, $part, $data);
+		} elseif ($type == 'PSB') {
+            $this->add_psb($secret, $account, $part, $data);
 		} else {
             die('Type "' . $type . '" is not defined (main).');
         }
     }
     
-    private function get_group($mcc, $null = 'Прочие', $nf = 'Остальные') {
+    private function get_group($mcc, $null = 'Прочие') {
         if ($mcc != '') {
-            $group = $nf;
-            foreach($this->mccs as $gr => $m) {
-                if (in_array($mcc, $m['mcc'])) {
-                    return $gr;
-                }
-            }
+            $group = Helper_MCC::get_rus($mcc);
         } else {
             $group = $null;
         }
@@ -187,7 +155,7 @@ class Controller_Collect extends Controller_Base {
         } elseif ($main_id > 0 && $part == 0) {
             $model->clear_child($model->get_table_name($ctype), $main_id, $mindate);
         }
-        if ($main_id < 0) die('Error: ' . $main_id);
+        if ($main_id < 0) die('Error: ' . $main_id . '(add_prepare)');
         
         return $main_id;
         
@@ -316,7 +284,7 @@ class Controller_Collect extends Controller_Base {
 			if (count($oper) != 12) 
 				die('Wrong format!');
 		}
-        $mindate = date('Y-m-d', strtotime($oper[1]));
+        $mindate = date('Y-m-d', strtotime($oper[0]));
         $main_id = $this->add_prepare($secret, $ctype, $account, $part, $mindate);
         
         foreach ($data as $k => $oper) {
@@ -325,12 +293,12 @@ class Controller_Collect extends Controller_Base {
                 // format
                 $oper[6] = (float)str_replace(',', '.', $oper[6]);
                 $oper[11] = (int)$oper[11];
-                $oper[1] = date('Y-m-d', strtotime($oper[1]));
+                $oper[0] = date('Y-m-d', strtotime($oper[0]));
                 
                 // to base
                 $e = $model->upd($model->get_table_name($ctype), 0, array(
                     'pid' => $main_id,
-                    'oper_date' => $oper[1],
+                    'oper_date' => $oper[0],
                     'oper_description' => $oper[10],
                     'oper_group' => $oper[8],
                     'oper_sum' => $oper[6], 
@@ -496,7 +464,7 @@ class Controller_Collect extends Controller_Base {
         $ctype = 'hcb';
         
         $model = new Model_Collect;
-        print_r($data); die();
+
 		if ($part == 0) {
 			$mindate = $this->hcb_date_to_date($data[0]['date']);
 		} else {
@@ -531,124 +499,44 @@ class Controller_Collect extends Controller_Base {
         die(($part + 1) . '. Данные сохранены: ' . $t . ' шт.');
     }
     
-    private function get_tinkoff_filter() {
-        $filter = array();
-        $filter['groups'] = array();
-        $filter['groups_desc'] = array(
-            'Другое' => array(
-                'text' => array(
-                    'Плата за обслуживание' => $this->my_groups['prc'], 
-					'Плата за обслуживание.' => $this->my_groups['prc'], 
-                    'Плата за предоставление услуги SMS-банк' => $this->my_groups['prc'], 
-                    'Плата за Программу страховой защиты' => $this->my_groups['prc'],
-                    'Пополнение. Тинькофф Банк. Компенсация покупок по программе лояльности' => $this->my_groups['prc'],
-                    'Комиссия за пополнение.' => $this->my_groups['prc'],
-                    'Проценты на остаток по счету' => $this->my_groups['prc'], 
-                    'Вознаграждение за операции покупок' => $this->my_groups['prc'],
-                    'Пополнение. Тинькофф Банк. Зачисление денежных средств по обращению' => $this->my_groups['prc'],
-                    'Пополнение. Элекснет' => 'Наличные, Card2Card', 
-                    'Пополнение. Евросеть' => 'Наличные, Card2Card',
-                    'Пополнение. КиберПлат' => 'Наличные, Card2Card',
-					'Пополнение. Comepay' => 'Наличные, Card2Card',
-                    'Пополнение. "Золотая Корона"' => 'Наличные, Card2Card',
-                    'Перевод для закрытия накопительного счета' => $this->my_groups['int'],
-                ),
-                'starts' => array(
-                    'Изъятие вклада при закрытии' => $this->my_groups['int'],
-                    'На вклад «' => $this->my_groups['int'],
-                    'На счёт «' => $this->my_groups['int'],
-					'Внутренний перевод с договора' => $this->my_groups['int'],
-                )
-            ),
-            'Наличные, c2c' => array(
-                '*' => 'Наличные, Card2Card'
-            ),
-            'Мобильные/иб' => array(
-                '*' => 'Телекоммуникационные услуги'
-            ),
-            'Переводы/иб' => array(
-                'text' => array(
-                    'Внутрибанковский перевод' => $this->my_groups['int'],
-                ),
-                'starts' => array(
-                    'На вклад «' => $this->my_groups['int'],
-                    'На счёт «' => $this->my_groups['int'],
-                ),
-                '*' => $this->my_groups['acc']
-            ),
-            'Переводы' => array(
-                'text' => array(
-                    'Перевод c карты другого банка' => 'Наличные, Card2Card'
-                )
-            ),
-            'Пополнение вклада' => array(
-                '*' => $this->my_groups['int']
-            ),
-            'Вклад' => array(
-                '*' => $this->my_groups['int']
-            ),
-            'Проценты' => array(
-                '*' => $this->my_groups['prc']
-            ),
-            'Компенсация' => array(
-                '*' => $this->my_groups['prc']
-            ),
-        );
+    private function add_psb($secret, $account, $part, $data) {
         
-        return $filter;
-    }
-	
-    private function get_imoney_filter() {
-        $filter = array();
-        $filter['groups'] = array();
-        $filter['groups_desc'] = array(
-            'Прочие' => array(
-                'text' => array(),
-                'starts' => array(
-                    'Перевод (зачисление) средств во вклад' => $this->my_groups['int'],
-                    'Перевод (списание) средств со вклада' => $this->my_groups['int'],
-                    'Начисление процентов по вкладу' => $this->my_groups['prc'],
-                    'Комиссия за обслуживание' => $this->my_groups['prc']
-                )
-            ),
-            '*' => array(
-                'starts' => array(
-                    'Возврат средств по программе CashBack' => $this->my_groups['csh'],
-                    'Авторизация. Кэшбэк-зачисление' => $this->my_groups['csh']
-                )
-            )
-        );
-        return $filter;
-    }
-    
-    private function get_kukuruza_filter() {
-        $filter = array();
-        $filter['groups'] = array(
-            'Бакалейные магазины, супермаркеты' => 'Супермаркеты',
-            'Рестораны быстрого питания' => 'Рестораны',
-            'Готовая женская одежда' => 'Одежда и обувь',
-            'Обувные магазины' => 'Одежда и обувь',
-            'Одежда для детей и подростков' => 'Одежда и обувь',
-            'Пассажирские железные дороги' => 'ЖД',
-            'Сотовая связь' => 'Телекоммуникационные услуги',
-        );
-        $filter['groups_desc'] = array(
-            'Прочие' => array(
-                'text' => array(
-                    'Покупка с картой «Кукуруза»' => $this->my_groups['csh'],
-                    'Обмен баллов на скидку' => $this->my_groups['csh'] . '-',
-                ),
-                'starts' => array(
-                    'Пополнение с карты MASTERCARD' => 'Наличные, Card2Card'
-                )
-            ), 
-            'Скрытые' => array(
-                'starts' => array(
-                    'Сотовый' => 'Телекоммуникационные услуги'
-                )
-            )
-        );
-        return $filter;
+        $ctype = 'psb';
+        
+        $model = new Model_Collect;
+
+		if ($part == 0) {
+			$mindate = date('Y-m-d', strtotime($data[0]['date']));
+		} else {
+			$mindate = '';
+		}
+        $main_id = $this->add_prepare($secret, $ctype, $account, $part, $mindate);
+        
+		$t = 0;
+        foreach ($data as $oper) {
+            $t++;
+            // format
+            $oper['sum'] = (float)$oper['sum'];
+            $oper['date'] = date('Y-m-d', strtotime($oper['date']));
+            if ($oper['curr'] == 'RUR') $oper['curr'] = 'RUB';
+            
+            // to base
+            $e = $model->upd($model->get_table_name($ctype), 0, array(
+                'pid' => $main_id,
+                'oper_id' => $oper['id'],
+                'oper_date' => $oper['date'],
+                'oper_description' => $oper['desc'],
+                'oper_sum' => $oper['sum'], 
+                'oper_mcc' => $oper['mcc'], 
+                'oper_currency' => $oper['curr'],
+                'oper_group' => $oper['group']
+            ));
+            if ($e < 0) {
+                die('Ошибка: ' . $e . ' - ' . mysql_error() .  ': ' . print_r($oper, true));
+            }
+        }
+
+        die(($part + 1) . '. Данные сохранены: ' . $t . ' шт.');
     }
     
     private function get_group_filter_main($filter, $oper) {
@@ -668,44 +556,59 @@ class Controller_Collect extends Controller_Base {
         $oper_group = $oper['oper_group'];
         $oper_description = $oper['oper_description'];
         $oper_sum = $oper['oper_sum'];
-        if (isset($filter['groups'][$oper_group])) 
-            return $filter['groups'][$oper_group];
+        $oper_mcc = isset($oper['oper_mcc']) ? $oper['oper_mcc'] : '';
         
-        foreach($filter['groups_desc'] as $group_name => $desc) {
-            
-            if ($oper_group == $group_name || $group_name == '*') {
-                foreach($desc as $type => $a) {
-                    if ($type == 'text') {
-                        if (isset($a[$oper_description]))
-                            return $a[$oper_description];
-                    } elseif ($type == 'starts') {
-                        foreach ($a as $b => $c) {
-                            if (strpos($oper_description, $b) === 0) 
-                                return $c;
-                        }
-                    } elseif ($type == '*') {
-                        return $a;
-                    } elseif ($type == 'regexp') {
-						foreach ($a as $b => $c) {
-                            if (preg_match('/' . $b . '/', $oper_description)) 
-                                return $c;
-                        }
-					} elseif ($type == 'sum') {
-						foreach ($a as $b => $c) {
-                            if ((float)$b == $oper_sum)
-                                return $c;
-                        }
-					} else {
-                        die('Type "'.$type.'" is not defined');
-                    }
-                }
-            }
-        }
+		//if ($oper_description == '554386XXXXXX5793 Retail RUS MOSCOW Tinkoff Bank Card2Card 626312') {
+		//	print_r($filter); die();
+		//}
+		
+		foreach($filter as $fg => $fv) {
+			$o = false;
+			if ($fg == 'mcc' && $oper_mcc != '' && isset($fv[$oper_mcc])) {
+				$o = $fv[$oper_mcc];
+			} elseif ($fg == 'groups_desc' && isset($fv[$oper_group])) {
+				$o = $fv[$oper_group];
+			} elseif ($fg == 'groups_desc' && isset($fv['*'])) {
+				$o = $fv['*'];
+			}
+			
+			if ($o) {
+				if (is_array($o)) {
+					foreach($o as $type => $a) {
+						if ($type == 'text') {
+							if (isset($a[$oper_description]))
+								return $a[$oper_description];
+						} elseif ($type == 'starts') {
+							foreach ($a as $b => $c) {
+								if (strpos($oper_description, $b) === 0) 
+									return $c;
+							}
+						} elseif ($type == 'regexp') {
+							foreach ($a as $b => $c) {
+								if (preg_match('/' . $b . '/', $oper_description)) 
+									return $c;
+							}
+						} elseif ($type == 'sum') {
+							foreach ($a as $b => $c) {
+								if ((float)$b == $oper_sum)
+									return $c;
+							}
+						} elseif ($type == '*') {
+							return $a;
+						} else {
+							die('Type "'.$type.'" is not defined');
+						}
+					}
+				} else {
+					return $o;
+				}
+			}
+		}
         
         return $oper_group;
     }
     
-    private function add_kukuruza_filter($secret, $filter) {
+    private function add_kukuruza_filter($secret, $anyfilter, $filter) {
         
         $model = new Model_Collect;
         
@@ -718,8 +621,9 @@ class Controller_Collect extends Controller_Base {
             foreach ($data as $k => $oper) {
 
                 $oper['oper_group'] = $this->get_group($data[$k]['oper_mcc'], $oper['oper_group']);
-                $oper = $this->get_group_filter_main($this->get_kukuruza_filter(), $oper);
-                if ($filter) 
+                if ($anyfilter) 
+                    $oper = $this->get_group_filter_main($anyfilter, $oper);
+				if ($filter) 
                     $oper = $this->get_group_filter_main($filter, $oper);
                 $oper['pid'] = $main['id'];
                 
@@ -733,7 +637,7 @@ class Controller_Collect extends Controller_Base {
         
     }
     
-    private function add_imoney_filter($secret, $filter) {
+    private function add_imoney_filter($secret, $anyfilter, $filter) {
         
         $model = new Model_Collect;
         
@@ -746,7 +650,8 @@ class Controller_Collect extends Controller_Base {
             foreach ($data as $k => $oper) {
 
                 $oper['oper_group'] = $this->get_group($data[$k]['oper_mcc']);
-                $oper = $this->get_group_filter_main($this->get_imoney_filter(), $oper);
+                if ($anyfilter) 
+                    $oper = $this->get_group_filter_main($anyfilter, $oper);
                 if ($filter)
                     $oper = $this->get_group_filter_main($filter, $oper);
                 $oper['pid'] = $main['id'];
@@ -769,7 +674,7 @@ class Controller_Collect extends Controller_Base {
         
     }
     
-    private function add_tinkoff_filter($secret, $filter) {
+    private function add_tinkoff_filter($secret, $anyfilter, $filter) {
         
         $model = new Model_Collect;
         
@@ -782,11 +687,17 @@ class Controller_Collect extends Controller_Base {
             foreach ($data as $k => $oper) {
 
                 $oper['oper_group'] = $this->get_group($data[$k]['oper_mcc'], $oper['oper_group']);
-                $oper = $this->get_group_filter_main($this->get_tinkoff_filter(), $oper);
+                if ($anyfilter) 
+                    $oper = $this->get_group_filter_main($anyfilter, $oper);
                 if ($filter) 
                     $oper = $this->get_group_filter_main($filter, $oper);
                 $oper['pid'] = $main['id'];
                 $oper['oper_id'] = md5(rand() . time() . $oper['oper_date']);
+                
+                if ($oper['oper_group'] == $this->my_groups['csh']) {
+                    $oper['oper_cashback'] = $oper['oper_sum'];
+                    $oper['oper_sum'] = 0;
+                }
                 
                 unset($oper['oper_mnth']);
                 $e = $model->add_collect($main['id'], $oper);
@@ -798,7 +709,7 @@ class Controller_Collect extends Controller_Base {
         
     }
 	
-	private function add_raiffeisen_filter($secret, $filter) {
+	private function add_raiffeisen_filter($secret, $anyfilter, $filter) {
         
         $model = new Model_Collect;
         
@@ -811,6 +722,8 @@ class Controller_Collect extends Controller_Base {
             foreach ($data as $k => $oper) {
 
                 $oper['oper_group'] = 'Прочие';
+                if ($anyfilter) 
+                    $oper = $this->get_group_filter_main($anyfilter, $oper);
                 if ($filter) 
                     $oper = $this->get_group_filter_main($filter, $oper);
                 $oper['pid'] = $main['id'];
@@ -826,7 +739,7 @@ class Controller_Collect extends Controller_Base {
         
     }
     
-	private function add_vtb24_filter($secret, $filter) {
+	private function add_vtb24_filter($secret, $anyfilter, $filter) {
         
         $model = new Model_Collect;
         
@@ -839,6 +752,8 @@ class Controller_Collect extends Controller_Base {
             foreach ($data as $k => $oper) {
 
                 $oper['oper_group'] = 'Прочие';
+                if ($anyfilter) 
+                    $oper = $this->get_group_filter_main($anyfilter, $oper);
                 if ($filter)
                     $oper = $this->get_group_filter_main($filter, $oper);
                 $oper['pid'] = $main['id'];
@@ -854,7 +769,7 @@ class Controller_Collect extends Controller_Base {
         
     }
     
-    private function add_sdm_filter($secret, $filter) {
+    private function add_sdm_filter($secret, $anyfilter, $filter) {
         
         $model = new Model_Collect;
         
@@ -867,9 +782,45 @@ class Controller_Collect extends Controller_Base {
             foreach ($data as $k => $oper) {
 
                 $oper['oper_group'] = 'Прочие';
+                if ($anyfilter) 
+                    $oper = $this->get_group_filter_main($anyfilter, $oper);
                 if ($filter)
                     $oper = $this->get_group_filter_main($filter, $oper);
                 $oper['pid'] = $main['id'];
+                
+                unset($oper['oper_mnth']);
+                $e = $model->add_collect($main['id'], $oper);
+                if ($e < 0) {
+                    die('Ошибка: ' . $e . ' - ' . mysql_error() .  ': ' . print_r($oper, true));
+                }
+            }
+        }
+        
+    }
+    
+	private function add_hcb_filter($secret, $anyfilter, $filter) {
+        
+        $model = new Model_Collect;
+        
+        $sm = $model->get_main_accs($secret, 'hcb');
+        foreach ($sm as $main) {
+            // clear
+            $model->clear_data_filtered($main['id']);
+            // all data
+            $data = $model->get_hcb($main['id']);
+            foreach ($data as $k => $oper) {
+
+                if ($anyfilter) 
+                    $oper = $this->get_group_filter_main($anyfilter, $oper);
+                if ($filter)
+                    $oper = $this->get_group_filter_main($filter, $oper);
+                $oper['pid'] = $main['id'];
+                $oper['oper_id'] = md5(rand() . time() . $oper['oper_date']);
+                
+                if ($oper['oper_group'] == $this->my_groups['csh']) {
+                    $oper['oper_cashback'] = $oper['oper_sum'];
+                    $oper['oper_sum'] = 0;
+                }                
                 
                 unset($oper['oper_mnth']);
                 $e = $model->add_collect($main['id'], $oper);

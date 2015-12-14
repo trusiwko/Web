@@ -58,6 +58,7 @@
     <option data-show="0,0,0" data-order="asc,desc,asc" value="oper_currency,oper_mnth,oper_group">Валюта, Месяц, Группа</option>
     <option data-show="0,0,0" data-summary="0,0,1" data-order="asc,asc,desc" value="oper_currency,oper_group,oper_mnth">Валюта, Группа, Месяц</option>
     <option data-show="0,0,1" data-summary="0,1" data-order="asc,desc" value="type,oper_mnth">Источник, Месяц</option>
+    <option data-show="0,0,1" data-summary="0,1" data-order="asc,asc" value="type,oper_group">Источник, Группа</option>
 	<option value="clear">Убрать группировку</option>	
 </select><br><br></div>
         

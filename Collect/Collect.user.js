@@ -11,6 +11,7 @@
 // @match        https://online.vtb24.ru/content/telebank-client/ru/login/telebank/*
 // @match        https://retail.sdm.ru/
 // @match        https://ib.homecredit.ru/ibs/group/hcfb/*
+// @match        https://pfm.psbank.ru/Transactions
 // @updateURL    https://raw.githubusercontent.com/trusiwko/Web/master/Collect/Collect.user.js
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -227,6 +228,31 @@ function hcb() {
     });
 }
 
+function psb() {
+    // Для полной загрузки выполнить:
+    // transactionsPage.transactionsPerPage = 1000; transactionsPage.setBatchSize();
+    $.each(unsafeWindow.transactionsPage.data.Transactions, function(idx, val) {
+        var d = val.Date;
+            d = d.replace('/Date(', '').replace(')/', '');
+        var da = new Date(parseFloat(d));
+        var o = {
+            id: val.Id, 
+            date: da.getFullYear() + "-" + (da.getMonth() + 1) + "-" + da.getDate(), 
+            desc: val.OriginalText, 
+            group: _menigaCategoryWidget.getCategoryNameById(val.CategoryId), 
+            sum: val.Amount, 
+            curr: val.Currency, 
+            mcc: val.Mcc, 
+            cb: 0.0
+        };
+        arr.push(o);
+    });
+    
+
+    arr.reverse();
+    next();
+}
+
 function syncStart() {
     console.log('start');
     arr = new Array();
@@ -366,6 +392,11 @@ function syncStart() {
         type = 'HomeCredit';
         account = $('.friendlyNameBox td:first').text();
         hcb();
+        return;
+    } else if (location.hostname == 'pfm.psbank.ru') {
+        type = 'PSB';
+        account = 'main';
+        psb();
         return;
     }
     if (!GM_getValue( 'acc_need', true )) {
