@@ -340,6 +340,7 @@ function syncStart() {
         
         $('.Data-Grid tbody tr').each(function(a,b){
             var o = {id: '', date: '', desc: '', sum: 0.0, curr: currency};
+            var go = false;
             $(b).find('td').each(function(a,c) {
                 var d = $(c).text();
                 if (a == 0) {
@@ -354,9 +355,11 @@ function syncStart() {
                     o.sum = parseFloat(d);
                 } else if (a == 4) {
                     o.desc = d;
+                    go = true;
                 }
-            })
-            arr.push(o);
+            });
+            if (go)
+              arr.push(o);
         });
         
     } else if (location.hostname == 'ib.homecredit.ru') {
