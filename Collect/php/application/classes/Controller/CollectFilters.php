@@ -29,7 +29,8 @@ class Controller_CollectFilters extends Controller_Base {
             'imoney' => $this->get_my_imoney_filter(),
             'kukuruza' => $this->get_my_kukuruza_filter(),
             'sdm' => $this->get_my_sdm_filter(),
-            'hcb' => $this->get_my_hcb_filter()
+            'hcb' => $this->get_my_hcb_filter(),
+            'psb' => $this->get_my_psb_filter()
         );
         die(json_encode($filter));
     }
@@ -63,10 +64,12 @@ class Controller_CollectFilters extends Controller_Base {
 			),
 			'5812' => $this->my_groups['res'],
 			'5814' => $this->my_groups['res'],
+            '5921' => Helper_MCC::get_rus('5411'),
             '5946' => $this->my_groups['ali'],
 			'6011' => $this->my_groups['nal'],
 			'6012' => $this->my_groups['c2c'],
             '6300' => array('text' => array('VSK.RU' => 'ОСАГО', 'SOAO VSK' => 'ОСАГО')),
+            '6536' => $this->my_groups['c2c'],
 			'6538' => $this->my_groups['c2c'],
 			'6540' => $this->my_groups['nal'],
 			'5945' => $this->my_groups['gam'],
@@ -576,6 +579,29 @@ class Controller_CollectFilters extends Controller_Base {
                     'CITILINK SAMARA' => 'Продажа электроники',
                 ),
                 '*' => $this->my_groups['oth'],
+            )
+        );
+        return $filter;
+    }
+    
+    private function get_my_psb_filter() {
+        $filter = array();
+        $filter['groups_desc'] = array(
+            'Комиссия' => $this->my_groups['prc'],
+            'Кэшбэк' => $this->my_groups['csh'],
+            'Межбанк' => $this->my_groups['int'],
+            'Мобильная связь' => 'Телекоммуникационные услуги',
+            'Проценты, дивиденды и доходы от вложений' => array(
+                'starts' => array(
+                    'Зачисление Cash Back za' => $this->my_groups['csh'],
+                    'Уплата процентов на остаток по счету' => $this->my_groups['prc'],
+                )
+            ),
+            'Прочие доходы' => array(
+                'starts' => array(
+                    'Зачисление Cash Back za' => $this->my_groups['csh'],
+                    'Зачисление PSB RETAIL' => $this->my_groups['int'],
+                )
             )
         );
         return $filter;

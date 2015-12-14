@@ -86,6 +86,7 @@ class Controller_Collect extends Controller_Base {
                     $this->add_vtb24_filter($secret, $any, isset($filter['vtb24']) ? $filter['vtb24'] : false);
                     $this->add_sdm_filter($secret, $any, isset($filter['sdm']) ? $filter['sdm'] : false);
                     $this->add_hcb_filter($secret, $any, isset($filter['hcb']) ? $filter['hcb'] : false);
+                    $this->add_psb_filter($secret, $any, isset($filter['psb']) ? $filter['psb'] : false);
 
                 }
             } else {
@@ -816,6 +817,41 @@ class Controller_Collect extends Controller_Base {
                     $oper = $this->get_group_filter_main($filter, $oper);
                 $oper['pid'] = $main['id'];
                 $oper['oper_id'] = md5(rand() . time() . $oper['oper_date']);
+                
+                if ($oper['oper_group'] == $this->my_groups['csh']) {
+                    $oper['oper_cashback'] = $oper['oper_sum'];
+                    $oper['oper_sum'] = 0;
+                }                
+                
+                unset($oper['oper_mnth']);
+                $e = $model->add_collect($main['id'], $oper);
+                if ($e < 0) {
+                    die('Ошибка: ' . $e . ' - ' . mysql_error() .  ': ' . print_r($oper, true));
+                }
+            }
+        }
+        
+    }
+    
+    private function add_psb_filter($secret, $anyfilter, $filter) {
+        
+        $model = new Model_Collect;
+        
+        $sm = $model->get_main_accs($secret, 'psb');
+        foreach ($sm as $main) {
+            // clear
+            $model->clear_data_filtered($main['id']);
+            // all data
+            $data = $model->get_psb($main['id']);
+            foreach ($data as $k => $oper) {
+
+                $oper['oper_group'] = $this->get_group($data[$k]['oper_mcc'], $oper['oper_group']);
+                if ($anyfilter) 
+                    $oper = $this->get_group_filter_main($anyfilter, $oper);
+                if ($filter)
+                    $oper = $this->get_group_filter_main($filter, $oper);
+                $oper['pid'] = $main['id'];
+                //$oper['oper_id'] = md5(rand() . time() . $oper['oper_date']);
                 
                 if ($oper['oper_group'] == $this->my_groups['csh']) {
                     $oper['oper_cashback'] = $oper['oper_sum'];
