@@ -4,7 +4,7 @@
 // @version      0.5
 // @description  Bank operations collector
 // @author       usbo
-// @match        https://mybank.oplata.kykyryza.ru/
+// @match        https://mybank.oplata.kykyryza.ru/*
 // @match        https://iclick.imoneybank.ru/*
 // @match        https://my.tinkoff.ru/*
 // @match        https://connect.raiffeisen.ru/rba/*
