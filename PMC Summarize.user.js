@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         PMC Summarize
-// @version      0.2
+// @version      0.21
 // @description  Get this sum!
 // @author       Pavel Goncharenko
 // @match        https://pmc.epam.com/pmc/timereport/list.do
