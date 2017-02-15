@@ -500,11 +500,10 @@
         }
 		gLine = getUrlParameter('line');
 		// settings
+		gUseLeapYearType = 2;
 		if (gBankName == 'vtb24' || gBankName == 'sberbank') {
-			gUseLeapYearType = 2;
 			gMinusPercent = 1;
         } else {
-            gUseLeapYearType = 1;
 			gMinusPercent = 0;
         }
 	}
@@ -519,6 +518,7 @@
 				var dd = getDepositObject(o.type);
 				amAdd.push({
 					date: new Date(o.date), 
+					onlyPercPaym : o.onlyPercPaym,
 					sum: o.sum, 
 					paym: o.paym, 
 					comment: o.comment,
@@ -527,8 +527,9 @@
 				});
 				if (dd) {
 					var sum = o.sum * (1 + dd.percent / 100 * daysDiff(dd.close, o.date) / 365);
-                    if (typeof dp[dd.close] == "undefined") dp[dd.close] = {comment: Array(), sum: 0};
+                    if (typeof dp[dd.close] == "undefined") dp[dd.close] = {comment: Array(), sum: 0, tsum: 0};
                     dp[dd.close].sum += sum;
+                    dp[dd.close].tsum += o.sum;
                     dp[dd.close].comment.push(DtoS(o.date));
 				}
 			}
@@ -564,14 +565,17 @@
             }
         });
         for(var i in dp) { 
-            amAdd.push({
-                date: new Date(i), 
-                sum: dp[i].sum, 
-                paym: 0,
-                comment: "С депозита: " + dp[i].comment.join(', '),
-                type: 'deposit',
-                deposit_data: false
-            });
+		    // Учитываем только при планировании
+		    if (new Date(i) > new Date()) {
+				amAdd.push({
+					date: new Date(i), 
+					sum: dp[i].sum, 
+					paym: 0,
+					comment: "С депозита (" + dp[i].tsum + " р.): " + dp[i].comment.join(', '),
+					type: 'deposit',
+					deposit_data: false
+				});
+			}
         }
         amAdd.sort(compareAdd);
         return amAdd;
@@ -580,6 +584,7 @@
 	// Статистиска: Проценты, Платеж, Досрочный платеж
     function chartAddMonthly(indx, NN, Prc, Pay, Rp) {
         var N = NN - 1;
+		if (N == -1) N = 0; // Если досрочка до первой даты платежа и нет галки "первый платеж - проценты"
         if (typeof chart_data[indx].loanPercent[N] == 'undefined') {
             chart_data[indx].loanPercent[N] = 0;
         }
@@ -651,6 +656,7 @@
 		var nPrc = toN($('#month-payment').val()); // Ежемесячный платеж
 		var nPrcEdited = null; // Если исправили сумму ежемесячного платежа
 		var aLoanCommonSum12 = nPrc; // Сумма ежемесячного платежа (не округленная) для подсказки
+        var bFixedPayment = false; // Зафиксировать ежемесячный платеж (в Сбербанке)
 
         // События (смена процента, страховка, курс валюты)
 		var amEvent = mEvent.slice(0);
@@ -693,7 +699,7 @@
 
         var aloanCommonSum = 0; // Последняя заплаченная сумма
         
-        if (gFirstPercent == 1) {
+        if (gFirstPercent == 1 && false) {
             // Вторая строка - проценты
             var operationDateEditableDate;
             var operationSumEditable = 0;
@@ -775,7 +781,14 @@
                 } else if (amEvent[0].type == 'exrate') {
 					amAdd.push({date: new Date(amEvent[0].date), sum: 0, paym: 0, type: 'exrate', percentChanged: 1, exRate: amEvent[0].percent});
                     amAdd.sort(compareAdd);
-				}
+				} else if (amEvent[0].type == 'payment') {
+                    nPrc = amEvent[0].percent;
+                    bFixedPayment = true;
+                    addCommentLine({
+                        comment: DtoS(amEvent[0].date) + '. Ежемесячный платеж установлен вручную: ' + amEvent[0].percent + ' р.', 
+                        chartIndex : chart_index
+                        });
+                }
                 amEvent.splice(0, 1);
             }
 			
@@ -786,6 +799,7 @@
 			var rePayedSumm = 0; // Сумма досрочного погашения за период
 			var rePayedPrcWoSumm = 0; // Сумма досрочных процентов без досрочных погашений (для сбербанка)
 			
+            // Если поставить =, то галка вычесть ЕП не работает.
 			while ((amAdd.length > 0) && (tnD > amAdd[0].date)) {
                 if (amAdd[0].type == 'insurance') {
                     addCommentLine({
@@ -840,13 +854,18 @@
                     if ((oldPrc != 0) && (gMinusPercent == 1)) {
                         loanPercentSumHint = NtoS(oldPrc, ' ') + ' + ' + NtoS(oldPrc1, ' ');
                     } else {
-                        loanPercentSumHint = NtoS(oldPrc1, ' ');
+                        if (oldPrc != 0) {
+                            loanPercentSumHint = NtoS(oldPrc1, ' ') +  ' + ' + loanPercentSumHint;
+                        } else {
+                            loanPercentSumHint = NtoS(oldPrc1, ' ');
+                        }
                     }
                     oldPrc += oldPrc1;
 
                     var addPrc = 0; // Проценты набежавшие до даты погашения
-                    if ((gMinusPercent == 1) && (typeof amAdd[0].leap == "undefined")) {
+                    if ((gMinusPercent == 1) && (typeof amAdd[0].leap == "undefined") && (amAdd[0].type != 'factChangedDate2')) {
 						// В Сбербанке и ВТБ24 от суммы досрочного погашения отнимаются проценты:
+                        // Но только если это не перенос даты платежа
                         S = Math.round((S - oldPrc) * iSig) / iSig;
                         if (S < 0) {
                             addPrc = oldPrc + S;
@@ -861,6 +880,10 @@
                         } else {
                             bOnlyPercent = 2;
                         }
+						
+						if (amAdd[0].onlyPercPaym == 1) {
+							bOnlyPercent = 0;
+						}
                     }
                     
 					// Если досрочка больше остатка:
@@ -926,7 +949,7 @@
                             } else {
                                 chartAddMonthly(chart_index, nPP, CS2, 0, S);
                             }
-                        }
+                        } 
                         // Уменьшение ежемесячного платежа
                         if (amAdd[0].type == 'payment') {
                             // Поиск нового ежемесячного платежа:
@@ -936,7 +959,9 @@
                             }
 							nPrcEdited = null;
 
-                            nPrc = calcMonthlyPayment(arestAmount, thed);
+                            if (!bFixedPayment) {
+                                nPrc = calcMonthlyPayment(arestAmount, thed);
+                            }
                             aLoanCommonSum12 = calcMonthlyPayment(arestAmount, thed, 1); // Не округленная сумма для подсказки
 
                         } 
@@ -998,7 +1023,7 @@
 				// Если ежемесячный платеж был исправлен руками:
 				if (Math.abs(a.oldSum - nPrcFinal) < 0.0001) {
 					nPrcEdited = a.newSum;
-					amFactSum.splice(b, 1);
+					//amFactSum.splice(b, 1);
 				}
 			});
 
@@ -1010,9 +1035,16 @@
 			aloanPercentSum = nCP; // из нее процентов
 			aloanMainSum = nPrcFinal - nCP; // из нее основного долга - погашение основного долга (ежемесячный платеж - проценты)
             
+            if (gFirstPercent == 1 && nPP == 0) {
+                // Вторая строка - проценты
+                aloanMainSum = 0;
+                aloanCommonSum = aloanPercentSum;
+                aLoanCommonSum12 = 'Первая строка - проценты';
+            }
+            
             // Сбербанк или ВТБ24
             if (bOnlyPercent != 0 && gBankName == 'sberbank') {
-				aloanMainSum = nPrcPaym - rePayedPrcWoSumm - rePayedSumm;
+				aloanMainSum = nPrcPaym - rePayedPrcWoSumm - rePayedSumm; // Погашение ОД = Сумма ЕП - ЧДП
 				if (aloanMainSum < 0) aloanMainSum = 0;	// Если ЧДП превысило ежемесячный платеж:
 				aloanCommonSum = aloanMainSum + nCP;
             }
@@ -1039,7 +1071,7 @@
             if (factChangedDate == 2) {
                 amAdd.push({date: new Date(factChangedDate2tnD), sum: aloanMainSum, paym: 0, type: 'factChangedDate2'});
                 amAdd.sort(compareAdd);
-                aloanCommonSum = aloanPercentSum;
+                aloanCommonSum = aloanPercentSum; // т.к. основной долг будет списан чуть позже
                 aLoanCommonSum12 = 'Погашение основного долга (' + NtoS(aloanMainSum, ' ') + ') через ' + daysDiff(factChangedDate2tnD, tnD) + ' д.';
                 aloanMainSum = 0;
                 operationSumEditable = 0;
@@ -1055,8 +1087,10 @@
 					thed.setMonth(thed.getMonth() + 1);
 				}
                 if (bOnlyPercent == 1) {
-                    nPrc = calcMonthlyPayment(arestAmount, thed);
-                    aLoanCommonSum12 = calcMonthlyPayment(arestAmount, tnD, 1); // Не округленная сумма для подсказки
+                    if (!bFixedPayment) {
+                        nPrc = calcMonthlyPayment(arestAmount, thed);
+                        aLoanCommonSum12 = calcMonthlyPayment(arestAmount, tnD, 1); // Не округленная сумма для подсказки
+                    }
                 }
 				bOnlyPercent = 0;
 			}
@@ -1093,7 +1127,7 @@
 		
 		if (chart_index == 0) {
 			$('.stat-avg').html(DtoS(chart_data[chart_index].currentOperationDate));
-			$('#stat-date').html(DtoS(chart_data[chart_index].lastOperationDate));
+			$('#stat-date').html(DtoS(chart_data[chart_index].lastOperationDate) + ' (' + chart_data[chart_index].payment.length + ' мес.)');
 		}
 		
 		if (chart_index == 2) {
@@ -1119,6 +1153,7 @@
 	
 	function clearAddPay() {
 		$('#add-date').val('');
+		$('#only-perc-paym')[0].checked = false;
 		$('#add-sum').val('');
 		$('#add-comment').val('');
 		$('#add-period').val('');
@@ -1135,6 +1170,7 @@
 		var e = mAdd[a];
 		editAddPaymentId = a;
 		$('#add-date').val(DtoS(e.date, 1));
+		$('#only-perc-paym')[0].checked = (e.onlyPercPaym == 1);
 		$('#add-sum').val(e.sum);
 		$('#add-comment').val(e.comment);
 		$('#add-period').val(e.repeat);
@@ -1252,8 +1288,6 @@
 	function addRepaySumm(date, sum, type) {
 		if ('Invalid Date' == toD(date)) {
 			alert('Дата должна быть введена в локальном формате, либо в формате гггг-мм-дд');
-		} else if (0 == toN(sum)) {
-			alert('Сумма введена не верно.');
 		} else {
 			mAdd.push({
 				date: toD(date), 
@@ -1282,18 +1316,22 @@
 	function inadd() {
 		if ('Invalid Date' == toD($('#add-date').val())) {
 			alert('Дата должна быть введена в локальном формате, либо в формате гггг-мм-дд');
-		} else if (0 == toN($('#add-sum').val())) {
-			alert('Сумма введена не верно.');
 		} else {
 			if ($('#add-paym')[0].checked) {
 				paymsign = 1;
 			} else {
 				paymsign = 0
 			}
+			if ($('#only-perc-paym')[0].checked) {
+				onlyPercPaym = 1;
+			} else {
+				onlyPercPaym = 0;
+			}
 			var da = {
 					date: toD($('#add-date').val()), 
 					sum: toN($('#add-sum').val()), 
 					paym: paymsign, 
+					onlyPercPaym : onlyPercPaym,
 					comment: $('#add-comment').val(),
 					repeat: $('#add-period').val(),
 					endDate: toD($('#add-monthly-date').val()),
@@ -1397,6 +1435,15 @@
 				mEvent.push({date: d, percent: p, type: e});
 			}
         }
+        if (e == 'payment') {
+            var d = toD($('#event-date4').val());
+            var p = toN($('#event-percent4').val());
+			if (d == 'Invalid Date') {
+				alert('Дата события должна быть введена в локальном формате, либо в формате гггг-мм-дд');
+			} else {
+				mEvent.push({date: d, percent: p, type: e});
+			}
+        }
         mEvent.sort(compareAdd);
         eventsList();
         return false;
@@ -1422,6 +1469,8 @@
                 $td.html('Страховка от ОД: ' + o.percent + '%');
             } else if (o.type == 'exrate') {
                 $td.html('Курс валюты: ' + o.percent + ' руб.');
+            } else if (o.type == 'payment') {
+                $td.html('Ежемесячный платеж: ' + o.percent + ' руб.');
             }
             $td = $('<td />').appendTo($tr);
             $td.html('<a title="Удалить" href="javascript:;" onclick="return deleteEvent('+i+')"><span class="glyphicon glyphicon-remove"></span></a>');
@@ -1441,10 +1490,10 @@
 				} else {
 					a.info.schedule_description = ' <b>' + a.info.schedule_description + '</b>';
 				}
-				$li = $('<li />').appendTo($ul).html('<a href="'+PATH+'mortgage/?public_id='+a.id+'">График №'+a.id+a.info.schedule_description+' (Сумма: '+a.info.credit_sum+' р., ставка: '+a.info.credit_percent+'%, срок: '+a.info.credit_month+' мес.)</a> <a class="delete-public-list" title="Удалить график" href="javascript:;" onclick="return delete_public_list('+a.id+')"><span class="glyphicon glyphicon-remove"></span></a>');
+				$li = $('<li />').addClass('public'+a.public).appendTo($ul).html('<a title="Изменить публичность данного графика (приватные графики доступны только автору, публичные - любому желающему по ссылке)" href="javascript:;" onclick="return toggle_public('+a.id+')"><span class="accent glyphicon '+( (a.public == 1) ? 'glyphicon-eye-open' : 'glyphicon-eye-close')+'"></span></a> <a href="'+PATH+'mortgage/?public_id='+a.id+'">График №'+a.id+a.info.schedule_description+' (Сумма: '+a.info.credit_sum+' р., ставка: '+a.info.credit_percent+'%, срок: '+a.info.credit_month+' мес.)</a> <a class="delete-public-list" title="Удалить график" href="javascript:;" onclick="return delete_public_list('+a.id+')"><span class="glyphicon glyphicon-remove"></span></a>');
 			});
 			if (d.length == 0) {
-				$li = $('<li />').appendTo($ul).html('Нет ни одного опубликованного графика');
+				$li = $('<li />').appendTo($ul).html('Нет ни одного графика');
 			}
 			$('#mortgage-list').show();
         }, 'json');	
@@ -1452,10 +1501,12 @@
 	}
 	
 	function delete_public_list(id) {
-		$.post(PATH + 'mortgage/unpublic', {public_id: id}, function(d) {
-			addmessage(d.msg);
-			mortgage_list();
-        }, 'json');	
+        if (confirm('Восстановить график будет нельзя. Продолжить?')) {
+            $.post(PATH + 'mortgage/remove', {save_id: id}, function(d) {
+                addmessage(d.msg);
+                mortgage_list();
+            }, 'json');	
+        }
 		return false;
 	}
    	
@@ -1507,6 +1558,11 @@
 			if ($(this).val() == 'sberbank' && $('#weekend-move')[0].checked) {
 				alert('Не забудьте снять галочку "Переносить воскресенье на понедельник", если выбираете Сбербанк');
 			}
+			if ($(this).val() == 'sberbank') {
+				$('.sberbank-only').show();
+			} else {
+				$('.sberbank-only').hide();
+			}
 		});
 		loaddata();
         add_period_changed();
@@ -1523,8 +1579,8 @@
 		month_payment_calc();
 	}
 	
-	function savedata() {
-		data = {};
+    function getsavedata() {
+		var data = {};
 		data.add = new Array();
         data.holiday = new Array();
         data.percentChange = new Array();
@@ -1535,6 +1591,7 @@
 		mAdd.forEach(function(o) {
 			data.add.push({
                 date: DtoS(o.date, true), 
+				onlyPercPaym: o.onlyPercPaym,
                 sum: o.sum, 
                 paym: o.paym, 
                 comment: o.comment,
@@ -1584,6 +1641,11 @@
         data.first_payment = $('#first-payment')[0].checked;
         data.bank_name = $('#bank-name').val();
 		data.schedule_description = $('#schedule-description').val();
+        return data;        
+    }
+    
+	function savedata() {
+        var data = getsavedata();
 		$.post(PATH + 'mortgage/save', {public_id: public_id, data: data}, function(d) {
 			addmessage(d.msg);
 		}, 'json');
@@ -1623,6 +1685,7 @@
                         paym: toN(o.paym), 
                         comment: o.comment,
                         repeat: (typeof o.repeat == 'undefined') ? '' : o.repeat,
+						onlyPercPaym: (typeof o.onlyPercPaym == 'undefined') ? 0 : toN(o.onlyPercPaym),
                         endDate: toD(o.endDate),
                         type: (typeof o.type == 'undefined') ? 'payment' : o.type
                     });
@@ -1659,6 +1722,7 @@
                 addHolidayList();
                 eventsList();
                 depositsList();
+                $('#bank-name').change();
 				calc(0);
 				calc(1);
 				calc(2);
@@ -1666,21 +1730,10 @@
 		}, 'json');
 	}
 	
-    // Опубликовать график в общий доступ
-    function public_data(){
-        $.post(PATH + 'mortgage/public', {}, function(d) {
-            if (d.public_id > 0) {
-                document.location.href = PATH + 'mortgage/?public_id=' + d.public_id;
-            } else {
-                addmessage('Ссылку создать не удалось');
-            }
-        }, 'json');
-		return false;
-    }
-	
-	function unpublic_data() {
+    // Удаление графика
+	function remove_data() {
 		if (confirm('Восстановить график будет нельзя. Продолжить?')) {
-			$.post(PATH + 'mortgage/unpublic', {public_id: public_id}, function(d) {
+			$.post(PATH + 'mortgage/remove', {save_id: public_id}, function(d) {
 				addmessage(d.msg);
 			}, 'json');
 		}
@@ -1695,17 +1748,25 @@
 		return nRest - A;
 	}
 	
-	function create_new() {
+	function create_new(copy) {
 		$.post(PATH + 'mortgage/create_new', {}, function(d) {
             if (d.public_id > 0) {
-                document.location.href = PATH + 'mortgage/?public_id=' + d.public_id;
+                if ((typeof copy != "undefined") && copy) {
+                    var data = getsavedata();
+                    public_id = d.public_id;
+                    $.post(PATH + 'mortgage/save', {public_id: public_id, data: data}, function(d) {
+                        document.location.href = PATH + 'mortgage/?public_id=' + public_id;
+                    }, 'json');
+                } else {
+                    document.location.href = PATH + 'mortgage/?public_id=' + d.public_id;
+                }
             } else {
                 addmessage('Ссылку создать не удалось');
             }
         }, 'json');	
 		return false;
 	}
-	
+    
 	var toExcel = (function() {
 	  var uri = 'data:application/vnd.ms-excel;charset=UTF-8;base64,'
 		, template = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>{worksheet}</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body><table>{table}</table></body></html>'
@@ -1819,6 +1880,13 @@
         $('#depositslisthead').html(' (' + mDeposits.length + ' шт.)');
     }    
     
+    function toggle_public(id) {
+        $.post(PATH + 'mortgage/toggle_public', {save_id: id}, function(d) {
+            addmessage(d.msg);
+            mortgage_list();
+        }, 'json');	
+    }
+    
 </script>
 
 <div class="navbar navbar-default" role="navigation">
@@ -1828,12 +1896,9 @@
       <li><a rel="nofollow" href="<?=Helper_OAuth_G::get_link()?>"><img height="40" src="<?=Kohana::$base_url?>img/sign-in-with-google.png" alt="google.com" title="Авторизация с помощью Google"/></a></li>
       <li><a rel="nofollow" href="<?=Helper_OAuth_F::get_link()?>"><img height="40" src="<?=Kohana::$base_url?>img/fblogin.png" alt="fb.com" title="Авторизация с помощью Facebook"/></a></li>
       <?php else: ?>
-      <li><a rel="nofollow" href="javascript:;" onclick="return mortgage_list()"><span class="glyphicon glyphicon-cloud"></span> Список опубликованных</a></li>
+      <li><a rel="nofollow" href="javascript:;" onclick="return mortgage_list()"><span class="glyphicon glyphicon-cloud"></span> Список моих графиков</a></li>
       <?php if(isset($public_id)): ?>
-      <li><a rel="nofollow" href="javascript:;" onclick="return unpublic_data()"><span class="glyphicon glyphicon-remove"></span> Удалить <?php if($public_id != 0) :?>публичный <?php endif; ?>график</a></li>
-      <?php if($public_id == 0):?>
-      <li><a rel="nofollow" href="javascript:;" onclick="return public_data()"><span class="glyphicon glyphicon-globe"></span> Опубликовать график</a></li>
-      <?php endif; ?>
+      <li><a rel="nofollow" href="javascript:;" onclick="return remove_data()"><span class="glyphicon glyphicon-remove"></span> Удалить график</a></li>
       <li><a rel="nofollow" href="javascript:;" onclick="return savedata()"><span class="glyphicon glyphicon-floppy-disk"></span> Сохранить график (<?=$user_data['user_name']?>)</a></li>
       <?php endif; ?>
       <li><a rel="nofollow" href="<?=Kohana::$base_url?>login/logout/"><span class="glyphicon glyphicon-log-out"></span> Выход</a></li>
@@ -1936,6 +2001,15 @@
   <p>Контролируй свои расходы и пусть расходы не контролируют тебя. Планируй досрочные ежемесячные погашения и посмотри результат.</p>
   <p>Данный калькулятор создан для расчета ипотечного кредита, <a href="<?=Kohana::$base_url?>mortgage_about/">подробное описание и примеры по ссылке</a>.</p>
 </div>  
+
+<noscript>
+    <div class="row">
+        <div class="alert alert-danger" role="alert">
+            <div>Внимание! У Вас отключен Java Script, к сожалению, калькулятор без него не работает. Пожалуйста, включите его в настройках.</div>
+        </div>
+    </div>
+</noscript>
+
 <div class="row">
     <div class="alert alert-warning" role="alert">
         <div>Друзья, если вдруг у вас получились расхождения с банковскими выписками (даже на копейку) - сообщите об этом мне: <a href="https://docs.google.com/a/usbo.info/forms/d/1TWTG5MQYFQDOVpPVm9bw-HKNFgevd0sP80RbnsJRQuY/viewform">через форму</a> или напрямую на почту: <a href="mailto:feedback@usbo.info">feedback@usbo.info</a>. В течение одного дня мы разберемся с этим. Спасибо.</div>
@@ -1954,7 +2028,7 @@
 <div class="row">
     <div class="panel panel-default">
         <div class="panel-body">
-            <div><a href="javascript:;" onclick="return create_new()">Создать новый график</a></div>
+            <div><a href="javascript:;" onclick="return create_new()">Создать новый график</a> | <a href="javascript:;" onclick="return create_new(true)">Скопировать данный график</a></div>
 			<div>! Предварительно сохраните данный, чтобы не потерять изменения</div>
         </div>
     </div>
@@ -2063,6 +2137,10 @@
 			  <div class="form-group required" >
 				<label class="col-sm-5">Дата погашения:</label>
 				<div class="col-sm-7"><input id="add-date" type="date" class="form-control" value=""></div>
+			  </div>
+			  <div class="form-group sberbank-only">
+				<label class="col-sm-8" title="Включить в сумму следущего платежа и основной долг (когда такое происходит, сообщите пожалуйста :) я встретил такое в графиках Сбербанка в конце года)">+ ОД в следующий ЕП:</label>
+				<div class="col-sm-4"><input id="only-perc-paym" type="checkbox" class="form-control" value="1"></div>
 			  </div>
 			  <div class="form-group " >
 				<label class="col-sm-5">Тип погашения:</label>
@@ -2177,6 +2255,14 @@
                 <div class="form-group">
                     <div class="col-sm-5"><input id="event-date3" type="date" class="form-control" value=""></div>
                     <div class="col-sm-4"><input id="event-percent3" type="number" step="0.0001" class="form-control" value=""></div>
+                    <div class="col-sm-3"><button class="btn btn-primary">Добавить</button></div>
+                </div>
+            </form>
+            <form class="form" action="" onsubmit="return addevent('payment')">
+                <p>Добавить изменение ежемесячного платежа<a href="http://usbo.info/mortgage_about/#faq3">*</a>:</p>
+                <div class="form-group">
+                    <div class="col-sm-5"><input id="event-date4" type="date" class="form-control" value=""></div>
+                    <div class="col-sm-4"><input id="event-percent4" type="number" step="0.01" class="form-control" value=""></div>
                     <div class="col-sm-3"><button class="btn btn-primary">Добавить</button></div>
                 </div>
             </form>
