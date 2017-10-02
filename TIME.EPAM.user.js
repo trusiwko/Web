@@ -1,5 +1,6 @@
 // ==UserScript==
 // @name         TIME.EPAM
+// @description  Time.epam summarize helper
 // @version      0.2
 // @author       usbo
 // @match        https://time.epam.com/journal/4060741400007522479/*
