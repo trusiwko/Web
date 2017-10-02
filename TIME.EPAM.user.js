@@ -1,9 +1,7 @@
 // ==UserScript==
 // @name         TIME.EPAM
-// @namespace    http://tampermonkey.net/
 // @version      0.2
-// @description  try to take over the world!
-// @author       You
+// @author       usbo
 // @match        https://time.epam.com/journal/4060741400007522479/*
 // @grant        none
 // @require      http://code.jquery.com/jquery-1.12.4.min.js
