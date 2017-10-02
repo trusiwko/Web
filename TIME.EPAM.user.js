@@ -3,6 +3,9 @@
 // @version      0.2
 // @author       usbo
 // @match        https://time.epam.com/journal/4060741400007522479/*
+// @source       https://github.com/trusiwko/Web/raw/master/TIME.EPAM.user.js
+// @updateURL    https://github.com/trusiwko/Web/raw/master/TIME.EPAM.user.js
+// @downloadURL  https://github.com/trusiwko/Web/raw/master/TIME.EPAM.user.js
 // @grant        none
 // @require      http://code.jquery.com/jquery-1.12.4.min.js
 // ==/UserScript==
