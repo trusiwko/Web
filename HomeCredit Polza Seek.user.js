@@ -8,7 +8,7 @@
 // ==/UserScript==
 
 findTr = function(e) {
-    var maxLimit = parseFloat($('.main-circle .value').text().replace(',', '.'));
+    var maxLimit = parseFloat($('.main-circle .value').text().replace(',', '.').replace(' ', ''));
     var maxSum = 0;
     var mtr = null;
     $('.main-operations tr[data-sum]').each(function(a,b) {
