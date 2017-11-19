@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         HomeCredit Polza Seek
-// @version      0.2
+// @version      0.21
 // @description  The best sum for compensation
 // @author       usbo
 // @match        https://polza.homecredit.ru/ib
@@ -34,7 +34,7 @@ loadTr = function(e) {
 (function() {
     'use strict';
     $(function() {
-        var $d = $('<div />').attr('id', 'plugbar').css({position: "fixed", top: 0, backgroundColor: "blue", padding: "5px"}).prependTo($('body'));
+        var $d = $('<div />').attr('id', 'plugbar').css({position: "fixed", top: 0, backgroundColor: "blue", padding: "5px", zIndex: "1000"}).prependTo($('body'));
         $('<button />').text('Найти').on('click', findTr).appendTo($d);
         $('<button />').text('Подгрузить').on('click', loadTr).appendTo($d);
     });
