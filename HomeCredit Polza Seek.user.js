@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         HomeCredit Polza Seek
-// @version      0.1
+// @version      0.2
 // @description  The best sum for compensation
 // @author       usbo
 // @match        https://polza.homecredit.ru/ib
