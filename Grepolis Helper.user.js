@@ -23,7 +23,7 @@ var timelefttimer = 0;
     $('<input type="checkbox">').on('click', function() {
         var col_towns5 = ['3276', '4321', '8339', '11535', '6711', '4929'];
         if ($(this).prop('checked')) {
-            timeleft = 5.1*60;
+            timeleft = 5.15*60;
             clearInterval(timelefttimer);
             timelefttimer = setInterval(function() {
                 $('#col_timer_div').text(timeleft);
