@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         Grepolis Helper
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.2
 // @description  try to take over the world!
-// @author       You
+// @author       usbo
 // @match        https://ru59.grepolis.com/game/*
 // @grant        none
 // ==/UserScript==
@@ -36,28 +36,32 @@ var timelefttimer = 0;
                 clearInterval(col_step_timer);
                 col_step_timer = setInterval(function() {
                     var town_id = col_towns5[cur_town];
-                    if (btnstate == 0) {
-                        console.log($('li[data-town_id="'+town_id+'"]'));
-                        $('li[data-town_id="'+town_id+'"]').click();
-                        btnstate = 1;
+                    if ($('#fto_claim_button').length == 0) {
+                        $('li.farm_town_overview').find('a[name="farm_town_overview"]').click();
                     } else {
-                        var wd = $('#fto_wood_exceeded').find('span').hasClass('town_storage_full');
-                        var ws = $('#fto_stone_exceeded').find('span').hasClass('town_storage_full');
-                        var wi = $('#fto_iron_exceeded').find('span').hasClass('town_storage_full');
-                        if (wd && ws && wi) {
-                            console.log(town_id + " is full.");
+                        if (btnstate == 0) {
+                            //console.log($('li[data-town_id="'+town_id+'"]'));
+                            $('li[data-town_id="'+town_id+'"]').click();
+                            btnstate = 1;
                         } else {
-                            $('#fto_claim_button').click();
+                            var wd = $('#fto_wood_exceeded').find('span').hasClass('town_storage_full');
+                            var ws = $('#fto_stone_exceeded').find('span').hasClass('town_storage_full');
+                            var wi = $('#fto_iron_exceeded').find('span').hasClass('town_storage_full');
+                            if (wd || ws || wi) {
+                                console.log(town_id + " is full.");
+                            } else {
+                                $('#fto_claim_button').click();
+                            }
+                            cur_town++;
+                            if (cur_town == col_towns5.length) {
+                                cur_town = 0;
+                                clearInterval(col_step_timer);
+                            }
+                            btnstate = 0;
                         }
-                        cur_town++;
-                        if (cur_town == col_towns5.length) {
-                            cur_town = 0;
-                            clearInterval(col_step_timer);
-                        }
-                        btnstate = 0;
                     }
                 }, 2000);
-            }, 5.1 * 60 * 1000);
+            }, 5.15 * 60 * 1000);
         } else {
             clearInterval(col_timer);
             clearInterval(timelefttimer);
