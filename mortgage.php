@@ -1185,7 +1185,8 @@
 				if (gFirstPercent == 0) {
 					thed.setMonth(thed.getMonth() + 1);
 				}
-                if (bOnlyPercent == 1) {
+                if (bOnlyPercent == 1 && gBankName == 'sberbank') {
+					// Добавил только для сбера 24.12.18
                     if (!bFixedPayment) {
                         nPrc = calcMonthlyPayment(arestAmount, thed);
 						mylog(nPP + '. nPrc = calcMonthlyPayment(arestAmount, thed): calcMonthlyPayment('+arestAmount+', '+DtoS(thed)+'): ' + nPrc);
@@ -2068,7 +2069,7 @@
 		var ctx = {worksheet: 'Amortization Schedule', table: $colgroup + $thead + '<tbody>' + $(table).html() + '</tbody>'};
 		window.location.href = uri + base64(format(template, ctx));
 	  }
-	})();	
+	})();
     
 </script>
 
